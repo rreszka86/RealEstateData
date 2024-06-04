@@ -1,0 +1,42 @@
+services:
+    red-db:
+        container_name: reddb
+        image: postgres:alpine3.20
+        environment:
+            POSTGRES_DB: RealEstateData
+            POSTGRES_USER: red_admin
+            POSTGRES_PASSWORD: password
+        ports:
+            - 5432:5432
+        healthcheck:
+            test: ["CMD-SHELL", "pg_isready -d RealEstateData -U red_admin"]
+            interval: 5s
+            timeout: 5s
+            retries: 5
+    red-server:
+        container_name: redserver
+        image: red:server
+        depends_on:
+            red-db:
+                condition: service_healthy
+        environment:
+            - SPRING_DATASOURCE_URL=jdbc:postgresql://reddb:5432/RealEstateData
+            - SPRING_DATASOURCE_USERNAME=red_admin
+            - SPRING_DATASOURCE_PASSWORD=password
+            - spring.jpa.hibernate.ddl-auto=update
+        ports:
+            - 8080:8080
+        healthcheck:
+            test: "curl --fail --silent localhost:8080/actuator/health | grep UP || exit 1"
+            interval: 30s
+            timeout: 5s
+            retries: 5
+            start_period: 40s
+    red-client:
+        container_name: redclient
+        image: red:client
+        depends_on:
+            red-server:
+                condition: service_healthy
+        ports:
+            - 80:80
